@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Payment" ALTER COLUMN "motif" DROP DEFAULT,
+ALTER COLUMN "motifExpiry" DROP DEFAULT;

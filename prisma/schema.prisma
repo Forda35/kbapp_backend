@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  password        String
+  role            String   @default("user")
+  verified        Boolean  @default(false)
+  verifyToken     String?  @unique
+  verifyTokenExp  DateTime?
+  createdAt       DateTime @default(now())
+
+  tickets  Ticket[]
+  payments Payment[]
+  passwordResets PasswordReset[]
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  date        DateTime
+  price       Float
+  location    String   @default("")
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  tickets  Ticket[]
+  payments Payment[]
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  qrCode      String?  @unique
+  userId      String
+  eventId     String
+  used        Boolean  @default(false)
+  scannedBy   String?
+  status      String   @default("pending")
+  purchasedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payment Payment?
+
+  @@unique([userId, eventId])
+  @@index([qrCode])
+}
+
+model Payment {
+  id           String   @id @default(uuid())
+  amount       Float
+  status       String   @default("pending")
+  method       String
+  phone        String
+  merchantCode String   @default("")
+  motif        String   @unique
+  motifExpiry  DateTime
+  userId       String
+  eventId      String
+  ticketId     String?  @unique
+  createdAt    DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id])
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
