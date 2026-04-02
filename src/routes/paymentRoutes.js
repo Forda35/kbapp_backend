@@ -46,11 +46,29 @@ router.post("/initiate", auth, async (req, res) => {
     const motifExpiry = getMotifExpiry();
     const merchantCode = MERCHANT_CODES[method];
 
-    // Créer ticket en attente (sans QR pour l'instant)
-    const ticket = await prisma.ticket.create({
-      data: { userId, eventId, status: "pending" },
-      include: { event: true },
-    });
+   // Vérifier s'il existe déjà un billet confirmé
+const existingConfirmed = await prisma.ticket.findFirst({
+  where: { userId, eventId, status: "confirmed" },
+});
+
+if (existingConfirmed) {
+  return res.status(400).json({ message: "Vous avez déjà un billet confirmé pour cet événement" });
+}
+
+// Supprimer tout billet pending/cancelled existant pour cet user+event
+await prisma.ticket.deleteMany({
+  where: {
+    userId,
+    eventId,
+    status: { in: ["pending", "cancelled"] },
+  },
+});
+
+// Créer le nouveau billet en attente
+const ticket = await prisma.ticket.create({
+  data: { userId, eventId, status: "pending" },
+  include: { event: true },
+});
 
     // Créer paiement
     const payment = await prisma.payment.create({
@@ -212,4 +230,21 @@ router.get("/merchant-codes", auth, (req, res) => {
   res.json({ merchantCodes: MERCHANT_CODES });
 });
 
+// Vérifier si un paiement en attente existe pour un événement
+router.get("/pending/:eventId", auth, async (req, res) => {
+  try {
+    const payment = await prisma.payment.findFirst({
+      where: {
+        userId: req.user.id,
+        eventId: req.params.eventId,
+        status: "pending",
+        motifExpiry: { gt: new Date() },
+      },
+    });
+    res.json({ hasPending: !!payment, payment });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
 module.exports = router;

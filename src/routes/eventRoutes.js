@@ -111,13 +111,19 @@ router.get("/admin/stats", auth, async (req, res) => {
     const [events, totalUsers, totalTickets, totalRevenue] = await Promise.all([
       prisma.event.findMany({
         include: {
-          tickets: { select: { id: true, used: true, purchasedAt: true } },
-          payments: { select: { id: true, amount: true, status: true, method: true } },
+          tickets: {
+            where: { status: "confirmed" }, // seulement confirmés
+            select: { id: true, used: true, purchasedAt: true },
+          },
+          payments: {
+            where: { status: "completed" }, // seulement complétés
+            select: { id: true, amount: true, status: true, method: true },
+          },
         },
         orderBy: { date: "desc" },
       }),
       prisma.user.count({ where: { verified: true } }),
-      prisma.ticket.count(),
+      prisma.ticket.count({ where: { status: "confirmed" } }), // seulement confirmés
       prisma.payment.aggregate({
         _sum: { amount: true },
         where: { status: "completed" },
@@ -136,7 +142,7 @@ router.get("/admin/stats", auth, async (req, res) => {
       payments: event.payments,
     }));
 
-    // Ventes par mois (pour le graphique)
+    // Ventes par mois (seulement billets confirmés)
     const monthlySales = {};
     events.forEach((event) => {
       event.tickets.forEach((ticket) => {

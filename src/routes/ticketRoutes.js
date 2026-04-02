@@ -30,17 +30,22 @@ router.post("/buy", auth, async (req, res) => {
       });
     }
 
-    // Vérifier si déjà acheté (unique par utilisateur par événement)
-    const existingTicket = await prisma.ticket.findUnique({
-      where: { userId_eventId: { userId, eventId } },
-    });
+    // Vérifier si billet confirmé existant
+const existingTicket = await prisma.ticket.findFirst({
+  where: { userId, eventId, status: "confirmed" },
+});
 
-    if (existingTicket) {
-      return res.status(400).json({
-        message: "Vous possédez déjà un billet pour cet événement",
-        ticket: existingTicket,
-      });
-    }
+if (existingTicket) {
+  return res.status(400).json({
+    message: "Vous possédez déjà un billet confirmé pour cet événement",
+    ticket: existingTicket,
+  });
+}
+
+// Nettoyer les billets pending/cancelled
+await prisma.ticket.deleteMany({
+  where: { userId, eventId, status: { in: ["pending", "cancelled"] } },
+});
 
     // Générer QR code unique
     const qrCode = uuidv4();
@@ -61,15 +66,17 @@ router.post("/buy", auth, async (req, res) => {
   }
 });
 
-// GET mes tickets
+// Récupérer uniquement les billets confirmés
 router.get("/", auth, async (req, res) => {
   try {
     const tickets = await prisma.ticket.findMany({
-      where: { userId: req.user.id },
+      where: {
+        userId: req.user.id,
+        status: "confirmed", // seulement les billets confirmés
+      },
       include: { event: true },
       orderBy: { purchasedAt: "desc" },
     });
-
     res.json(tickets);
   } catch (err) {
     console.error(err);
