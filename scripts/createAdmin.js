@@ -13,8 +13,8 @@ const prisma = new PrismaClient();
 
 // ═══════════════════════════════════════════════
 // 👇 MODIFIEZ CES VALEURS AVANT D'EXÉCUTER
-const ADMIN_EMAIL = "ferdinandotsiremy@gmail.com";
-const ADMIN_PASSWORD = "gojosatoru2023";
+const ADMIN_EMAIL = "";
+const ADMIN_PASSWORD = "";
 // ═══════════════════════════════════════════════
 
 async function createAdmin() {
