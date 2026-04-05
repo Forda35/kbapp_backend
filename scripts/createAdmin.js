@@ -18,7 +18,7 @@ const ADMIN_PASSWORD = "";
 // ═══════════════════════════════════════════════
 
 async function createAdmin() {
-  console.log("\n🚀 Création du compte administrateur...\n");
+  console.log("\nCréation du compte administrateur...\n");
 
   try {
     const existing = await prisma.user.findUnique({
