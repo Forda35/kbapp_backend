@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.12",
     "prisma": "^5.10.0",
+    "resend": "^6.4.2",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
