@@ -126,7 +126,7 @@ router.post("/scan", auth, async (req, res) => {
     });
 
     res.json({
-      message: "✅ Billet validé avec succès",
+      message: "Billet validé avec succès",
       ticket: {
         id: updatedTicket.id,
         user: ticket.user.email,

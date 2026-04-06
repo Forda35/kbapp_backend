@@ -169,7 +169,7 @@ function renderPage(title, message, success) {
     </head>
     <body>
       <div class="box">
-        <div class="icon">${success ? "🎉" : "❌"}</div>
+        <div class="icon">${success ? "Succès" : "Echec"}</div>
         <h1>KBApp</h1>
         <p class="status">${title}</p>
         <p>${message}</p>
@@ -269,7 +269,7 @@ function renderResetPage(token, showForm) {
       <body>
         <div class="box">
           <h1>KBApp</h1>
-          <p>❌ ${token}</p>
+          <p> ${token}</p>
         </div>
       </body>
       </html>
@@ -346,11 +346,11 @@ function renderResetPage(token, showForm) {
             if (res.ok) {
               msg.className = 'msg success';
               msg.style.display = 'block';
-              msg.textContent = '✅ ' + data.message + ' Retournez sur KBApp pour vous connecter.';
+              msg.textContent = data.message + ' Retournez sur KBApp pour vous connecter.';
             } else {
               msg.className = 'msg error';
               msg.style.display = 'block';
-              msg.textContent = '❌ ' + data.message;
+              msg.textContent = data.message;
             }
           } catch(e) {
             msg.className = 'msg error';
