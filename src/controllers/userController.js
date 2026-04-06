@@ -365,3 +365,15 @@ function renderResetPage(token, showForm) {
 }
 
 exports.renderResetPage = renderResetPage;
+
+exports.register = async (req, res) => {
+  try {
+    // ... votre code existant ...
+    await sendVerificationEmail(email, verifyToken);
+    console.log("EMAIL SENT OK");
+    res.status(201).json({ message: "Compte créé ! Vérifiez votre email." });
+  } catch (error) {
+    console.error("REGISTER ERROR DETAILS:", error.message, error.code);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
