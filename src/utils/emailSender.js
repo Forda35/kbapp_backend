@@ -16,10 +16,10 @@ exports.sendVerificationEmail = async (email, token) => {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: "Vérifiez votre adresse email – KBApp",
+    subject: "Vérifiez votre adresse email – KB Events App",
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:40px;border-radius:16px;">
-        <h1 style="color:#FFD700;text-align:center;">KBApp</h1>
+        <h1 style="color:#FFD700;text-align:center;">KB Events</h1>
         <h2 style="color:#fff;">Vérifiez votre adresse email</h2>
         <p style="color:#ccc;line-height:1.6;">Merci de vous être inscrit ! Cliquez ci-dessous pour activer votre compte.</p>
         <div style="text-align:center;margin:35px 0;">
@@ -28,7 +28,7 @@ exports.sendVerificationEmail = async (email, token) => {
           </a>
         </div>
         <p style="color:#999;font-size:13px;">Ce lien expire dans <strong>24 heures</strong>.</p>
-        <p style="color:#666;font-size:11px;text-align:center;margin-top:20px;">© 2024 KBApp</p>
+        <p style="color:#666;font-size:11px;text-align:center;margin-top:20px;">© 2026 KB Events</p>
       </div>
     `,
   });
@@ -38,7 +38,7 @@ exports.sendResetEmail = async (email, resetUrl) => {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: "Réinitialisation de votre mot de passe – KBApp",
+    subject: "Réinitialisation de votre mot de passe – KB Events App",
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:40px;border-radius:16px;">
         <h1 style="color:#FFD700;text-align:center;">KBApp</h1>
@@ -50,6 +50,7 @@ exports.sendResetEmail = async (email, resetUrl) => {
           </a>
         </div>
         <p style="color:#999;font-size:13px;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+        <p style="color:#666;font-size:11px;text-align:center;margin-top:20px;">© 2026 KB Events</p>
       </div>
     `,
   });

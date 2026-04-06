@@ -156,7 +156,7 @@ function renderPage(title, message, success) {
     <head>
       <meta charset="UTF-8"/>
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>${title} – KBApp</title>
+      <title>${title} – KB Events App</title>
       <style>
         body { margin:0; background:#0a0a1a; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; }
         .box { background:#111827; border:1px solid #1E3A8A; border-radius:20px; padding:50px 40px; text-align:center; max-width:420px; width:90%; }
@@ -170,7 +170,7 @@ function renderPage(title, message, success) {
     <body>
       <div class="box">
         <div class="icon">${success ? "Succès" : "Echec"}</div>
-        <h1>KBApp</h1>
+        <h1>KB Events App</h1>
         <p class="status">${title}</p>
         <p>${message}</p>
         <a href="${frontendUrl}">Se connecter</a>
@@ -259,7 +259,7 @@ function renderResetPage(token, showForm) {
       <head>
         <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title>Erreur – KBApp</title>
+        <title>Erreur – KB Events App</title>
         <style>
           body { margin:0; background:#0a0a1a; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; }
           .box { background:#111827; border:1px solid #1E3A8A; border-radius:20px; padding:50px 40px; text-align:center; max-width:420px; width:90%; }
@@ -268,7 +268,7 @@ function renderResetPage(token, showForm) {
       </head>
       <body>
         <div class="box">
-          <h1>KBApp</h1>
+          <h1>KB Events App</h1>
           <p> ${token}</p>
         </div>
       </body>
@@ -282,7 +282,7 @@ function renderResetPage(token, showForm) {
     <head>
       <meta charset="UTF-8"/>
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>Nouveau mot de passe – KBApp</title>
+      <title>Nouveau mot de passe – KB Events App</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background:#0a0a1a; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; padding: 20px; }
@@ -301,7 +301,7 @@ function renderResetPage(token, showForm) {
     </head>
     <body>
       <div class="box">
-        <h1>KBApp</h1>
+        <h1>KB Events App</h1>
         <p>Choisissez votre nouveau mot de passe</p>
 
         <label>Nouveau mot de passe</label>
@@ -346,7 +346,7 @@ function renderResetPage(token, showForm) {
             if (res.ok) {
               msg.className = 'msg success';
               msg.style.display = 'block';
-              msg.textContent = data.message + ' Retournez sur KBApp pour vous connecter.';
+              msg.textContent = data.message + ' Retournez sur KB Events App pour vous connecter.';
             } else {
               msg.className = 'msg error';
               msg.style.display = 'block';
