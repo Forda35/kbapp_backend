@@ -6,9 +6,9 @@ const { sendVerificationEmail } = require("../utils/emailSender");
 
 // REGISTER – crée le compte mais non vérifié
 exports.register = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password, termsAccepted } = req.body;
 
+  try {
     if (!email || !password) {
       return res.status(400).json({ message: "Email et mot de passe requis" });
     }
@@ -17,26 +17,35 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caractères" });
     }
 
+    // Vérification consentement obligatoire
+    if (!termsAccepted) {
+      return res.status(400).json({
+        message: "Vous devez accepter les conditions d'utilisation pour créer un compte",
+      });
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser && existingUser.verified) {
       return res.status(400).json({ message: "Cet email est déjà utilisé" });
     }
 
-    // Si l'utilisateur existe mais non vérifié, renvoyer un email
     if (existingUser && !existingUser.verified) {
       const token = crypto.randomBytes(32).toString("hex");
       const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
       await prisma.user.update({
         where: { email },
-        data: { verifyToken: token, verifyTokenExp: expiry },
+        data: {
+          verifyToken: token,
+          verifyTokenExp: expiry,
+          termsAccepted: true,
+          termsVersion: "1.0",
+          termsAcceptedAt: new Date(),
+        },
       });
-
       await sendVerificationEmail(email, token);
-
       return res.status(200).json({
-        message: "Un nouvel email de vérification a été envoyé. Vérifiez votre boîte mail et votre dossier spam si vous ne le trouvez pas.",
+        message: "Un nouvel email de vérification a été envoyé. Vérifiez votre boîte mail et vos spams.",
       });
     }
 
@@ -51,13 +60,16 @@ exports.register = async (req, res) => {
         verifyToken,
         verifyTokenExp,
         verified: false,
+        termsAccepted: true,
+        termsVersion: "1.0",
+        termsAcceptedAt: new Date(),
       },
     });
 
     await sendVerificationEmail(email, verifyToken);
 
     res.status(201).json({
-      message: "Compte créé ! Vérifiez votre email pour activer votre compte. Si vous ne trouvez pas l'email, vérifiez votre dossier spam ou indésirables.",
+      message: "Compte créé ! Vérifiez votre email pour activer votre compte. Si vous ne trouvez pas l'email, vérifiez vos spams.",
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -363,5 +375,18 @@ function renderResetPage(token, showForm) {
     </html>
   `;
 }
+
+// SUPPRIMER SON COMPTE
+exports.deleteAccount = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+    res.json({ message: "Compte supprimé avec succès" });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
 
 exports.renderResetPage = renderResetPage;

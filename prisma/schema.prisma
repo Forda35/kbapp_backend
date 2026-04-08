@@ -17,6 +17,11 @@ model User {
   verifyTokenExp  DateTime?
   createdAt       DateTime @default(now())
 
+// Consentement légal
+  termsAccepted   Boolean  @default(false)
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+
   tickets  Ticket[]
   payments Payment[]
   passwordResets PasswordReset[]
