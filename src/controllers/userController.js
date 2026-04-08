@@ -36,7 +36,7 @@ exports.register = async (req, res) => {
       await sendVerificationEmail(email, token);
 
       return res.status(200).json({
-        message: "Un nouvel email de vérification a été envoyé. Vérifiez votre boîte mail.",
+        message: "Un nouvel email de vérification a été envoyé. Vérifiez votre boîte mail et votre dossier spam si vous ne le trouvez pas.",
       });
     }
 
@@ -57,7 +57,7 @@ exports.register = async (req, res) => {
     await sendVerificationEmail(email, verifyToken);
 
     res.status(201).json({
-      message: "Compte créé ! Vérifiez votre email pour activer votre compte.",
+      message: "Compte créé ! Vérifiez votre email pour activer votre compte. Si vous ne trouvez pas l'email, vérifiez votre dossier spam ou indésirables.",
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -346,7 +346,7 @@ function renderResetPage(token, showForm) {
             if (res.ok) {
               msg.className = 'msg success';
               msg.style.display = 'block';
-              msg.textContent = data.message + ' Retournez sur KB Events App pour vous connecter.';
+              msg.textContent = data.message + ' Retournez sur l'application KB Events pour vous connecter.';
             } else {
               msg.className = 'msg error';
               msg.style.display = 'block';

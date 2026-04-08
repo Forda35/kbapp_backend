@@ -20,7 +20,7 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/payments", paymentRoutes);
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "OK", message: "KBApp API opérationnelle" });
+  res.json({ status: "OK", message: "KB Events App API opérationnelle" });
 });
 
 module.exports = app;
