@@ -1,7 +1,9 @@
-const Brevo = require("@getbrevo/brevo");
+const { TransactionalEmailsApi, SendSmtpEmail, ApiClient } = require("@getbrevo/brevo");
 
-const apiInstance = new Brevo.TransactionalEmailsApi();
-apiInstance.authentications["apiKey"].apiKey = process.env.BREVO_API_KEY;
+const apiClient = ApiClient.instance;
+apiClient.authentications["api-key"].apiKey = process.env.BREVO_API_KEY;
+
+const apiInstance = new TransactionalEmailsApi();
 
 const FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || "support.kbevents.mg@gmail.com";
 const FROM_NAME = "KB Events";
