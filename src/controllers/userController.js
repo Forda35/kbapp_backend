@@ -264,6 +264,8 @@ exports.resetPassword = async (req, res) => {
 
 //reset page
 function renderResetPage(token, showForm) {
+  const appUrl = process.env.APP_URL || "https://kbapp-backend.onrender.com";
+
   if (!showForm) {
     return `
       <!DOCTYPE html>
@@ -281,7 +283,7 @@ function renderResetPage(token, showForm) {
       <body>
         <div class="box">
           <h1>KB Events App</h1>
-          <p> ${token}</p>
+          <p>${token}</p>
         </div>
       </body>
       </html>
@@ -300,12 +302,13 @@ function renderResetPage(token, showForm) {
         body { background:#0a0a1a; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial,sans-serif; padding: 20px; }
         .box { background:#111827; border:1px solid #1E3A8A; border-radius:20px; padding:40px; width:100%; max-width:420px; }
         h1 { color:#FFD700; font-size:24px; text-align:center; margin-bottom:8px; }
-        p { color:#9CA3AF; text-align:center; margin-bottom:30px; font-size:14px; }
-        label { color:#9CA3AF; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; display:block; margin-bottom:8px; }
-        input { width:100%; background:#0d1535; border:1.5px solid #1E3A8A44; border-radius:12px; color:#fff; font-size:16px; padding:14px 16px; margin-bottom:20px; outline:none; }
+        p.subtitle { color:#9CA3AF; text-align:center; margin-bottom:30px; font-size:14px; }
+        label { color:#9CA3AF; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; display:block; margin-bottom:8px; margin-top:16px; }
+        input { width:100%; background:#0d1535; border:1.5px solid #1E3A8A44; border-radius:12px; color:#fff; font-size:16px; padding:14px 16px; margin-bottom:4px; outline:none; }
         input:focus { border-color:#FFD700; }
-        button { width:100%; background:linear-gradient(135deg,#1E3A8A,#2563EB); color:#FFD700; border:1.5px solid #FFD70060; border-radius:12px; padding:16px; font-size:16px; font-weight:800; cursor:pointer; }
+        button { width:100%; background:linear-gradient(135deg,#1E3A8A,#2563EB); color:#FFD700; border:1.5px solid #FFD70060; border-radius:12px; padding:16px; font-size:16px; font-weight:800; cursor:pointer; margin-top:20px; }
         button:hover { opacity:0.9; }
+        button:disabled { opacity:0.5; cursor:not-allowed; }
         .msg { margin-top:16px; padding:12px; border-radius:10px; text-align:center; font-size:14px; display:none; }
         .success { background:#052e16; border:1px solid #22c55e; color:#22c55e; }
         .error { background:#1a0a0a; border:1px solid #ef4444; color:#ef4444; }
@@ -314,7 +317,7 @@ function renderResetPage(token, showForm) {
     <body>
       <div class="box">
         <h1>KB Events App</h1>
-        <p>Choisissez votre nouveau mot de passe</p>
+        <p class="subtitle">Choisissez votre nouveau mot de passe</p>
 
         <label>Nouveau mot de passe</label>
         <input type="password" id="password" placeholder="Min. 6 caractères" />
@@ -322,16 +325,24 @@ function renderResetPage(token, showForm) {
         <label>Confirmer le mot de passe</label>
         <input type="password" id="confirm" placeholder="Répétez le mot de passe" />
 
-        <button onclick="submitReset()">Réinitialiser mon mot de passe</button>
+        <button id="submitBtn" onclick="submitReset()">
+          Réinitialiser mon mot de passe
+        </button>
 
         <div id="msg" class="msg"></div>
       </div>
 
       <script>
+        const APP_URL = '${appUrl}';
+        const RESET_TOKEN = '${token}';
+
         async function submitReset() {
           const password = document.getElementById('password').value;
           const confirm = document.getElementById('confirm').value;
           const msg = document.getElementById('msg');
+          const btn = document.getElementById('submitBtn');
+
+          msg.style.display = 'none';
 
           if (!password || password.length < 6) {
             msg.className = 'msg error';
@@ -347,27 +358,39 @@ function renderResetPage(token, showForm) {
             return;
           }
 
+          btn.disabled = true;
+          btn.textContent = 'Réinitialisation en cours...';
+
           try {
-            const res = await fetch('/api/users/reset-password', {
+            const response = await fetch(APP_URL + '/api/users/reset-password', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ token: '${token}', newPassword: password })
+              body: JSON.stringify({ 
+                token: RESET_TOKEN, 
+                newPassword: password 
+              })
             });
-            const data = await res.json();
 
-            if (res.ok) {
+            const data = await response.json();
+
+            if (response.ok) {
               msg.className = 'msg success';
               msg.style.display = 'block';
-              msg.textContent = data.message + ' Retournez sur l'application KB Events pour vous connecter.';
+              msg.textContent = data.message + ' Retournez sur KB Events App pour vous connecter.';
+              btn.style.display = 'none';
             } else {
               msg.className = 'msg error';
               msg.style.display = 'block';
-              msg.textContent = data.message;
+              msg.textContent = data.message || 'Une erreur est survenue';
+              btn.disabled = false;
+              btn.textContent = 'Réinitialiser mon mot de passe';
             }
           } catch(e) {
             msg.className = 'msg error';
             msg.style.display = 'block';
             msg.textContent = 'Erreur de connexion. Réessayez.';
+            btn.disabled = false;
+            btn.textContent = 'Réinitialiser mon mot de passe';
           }
         }
       </script>
