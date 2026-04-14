@@ -8,16 +8,96 @@ const { parseSMS } = require("../utils/smsParser");
 
 const prisma = new PrismaClient();
 
-const MERCHANT_CODES = {
-  MVola: process.env.MVOLA_MERCHANT_CODE || "MVOLA123",
-  "Orange Money": process.env.ORANGE_MONEY_MERCHANT_CODE || "ORANGE456",
-  "Airtel Money": process.env.AIRTEL_MONEY_MERCHANT_CODE || "AIRTEL789",
+// ── Confirmation manuelle Orange Money via ID de transaction ─────────────
+router.post("/confirm-orange", auth, async (req, res) => {
+  const { paymentId, transactionId } = req.body;
+  const userId = req.user.id;
+
+  if (!paymentId || !transactionId) {
+    return res.status(400).json({ message: "paymentId et transactionId sont requis" });
+  }
+
+  const trimmedId = transactionId.trim();
+  if (trimmedId.length < 4) {
+    return res.status(400).json({ message: "ID de transaction invalide" });
+  }
+
+  try {
+    // Récupérer le paiement
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { event: true },
+    });
+
+    if (!payment) return res.status(404).json({ message: "Paiement non trouvé" });
+    if (payment.userId !== userId) return res.status(403).json({ message: "Accès refusé" });
+    if (payment.method !== "Orange Money") return res.status(400).json({ message: "Cette route est réservée aux paiements Orange Money" });
+    if (payment.status !== "pending") return res.status(400).json({ message: "Ce paiement n'est plus en attente" });
+
+    // Vérifier expiration
+    if (new Date() > new Date(payment.motifExpiry)) {
+      await prisma.payment.update({ where: { id: payment.id }, data: { status: "expired" } });
+      if (payment.ticketId) {
+        await prisma.ticket.update({ where: { id: payment.ticketId }, data: { status: "cancelled" } });
+      }
+      return res.status(400).json({ message: "Ce paiement a expiré" });
+    }
+
+    // Vérifier que cet ID de transaction n'est pas déjà utilisé
+    const existing = await prisma.payment.findFirst({
+      where: { orangeTransactionId: { equals: trimmedId, mode: "insensitive" } },
+    });
+    if (existing) {
+      return res.status(400).json({ message: "Cet ID de transaction a déjà été utilisé" });
+    }
+
+    // Confirmer le paiement
+    const qrCode = uuidv4();
+
+    await prisma.ticket.update({
+      where: { id: payment.ticketId },
+      data: { status: "confirmed", qrCode },
+    });
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: "completed", orangeTransactionId: trimmedId },
+    });
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: payment.ticketId },
+      include: { event: true },
+    });
+
+    console.log(`✅ Orange Money confirmé manuellement: paymentId=${payment.id}, transactionId=${trimmedId}`);
+
+    res.json({
+      message: "Paiement Orange Money confirmé",
+      paymentId: payment.id,
+      ticketId: payment.ticketId,
+      ticket,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// Codes marchands / numéros selon la méthode
+const PAYMENT_DESTINATIONS = {
+  "Airtel Money": process.env.AIRTEL_MONEY_MERCHANT_CODE || "AIRTEL123",
+  "Orange Money": process.env.ORANGE_MONEY_PHONE || "032 00 000 00",
 };
 
 // ── Initier un paiement ──────────────────────────────────────
 router.post("/initiate", auth, async (req, res) => {
   const { eventId, phone, method } = req.body;
   const userId = req.user.id;
+
+  const validMethods = ["Orange Money", "Airtel Money"];
+  if (!validMethods.includes(method)) {
+    return res.status(400).json({ message: "Méthode de paiement invalide" });
+  }
 
   if (!eventId || !phone || !method) {
     return res.status(400).json({ message: "Événement, téléphone et méthode requis" });
@@ -27,48 +107,44 @@ router.post("/initiate", auth, async (req, res) => {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ message: "Événement non trouvé" });
 
-    // Vérifier si déjà un paiement en cours valide
+    // Vérifier si déjà un paiement complété
+    const existingConfirmed = await prisma.ticket.findFirst({
+      where: { userId, eventId, status: "confirmed" },
+    });
+    if (existingConfirmed) {
+      return res.status(400).json({ message: "Vous avez déjà un billet confirmé pour cet événement" });
+    }
+
+    // Vérifier si paiement en cours valide
     const existingPayment = await prisma.payment.findFirst({
       where: {
         userId,
         eventId,
-        status: { in: ["pending", "completed"] },
+        status: "pending",
         motifExpiry: { gt: new Date() },
       },
     });
-
-    if (existingPayment?.status === "completed") {
-      return res.status(400).json({ message: "Vous avez déjà acheté ce billet" });
+    if (existingPayment) {
+      return res.status(400).json({ message: "Vous avez déjà un paiement en cours pour cet événement" });
     }
 
     // Générer motif unique
     const motif = generateMotif();
     const motifExpiry = getMotifExpiry();
-    const merchantCode = MERCHANT_CODES[method];
 
-   // Vérifier s'il existe déjà un billet confirmé
-const existingConfirmed = await prisma.ticket.findFirst({
-  where: { userId, eventId, status: "confirmed" },
-});
+    // Destination paiement : code marchand pour Airtel, numéro de téléphone pour Orange
+    const merchantCode = PAYMENT_DESTINATIONS[method];
 
-if (existingConfirmed) {
-  return res.status(400).json({ message: "Vous avez déjà un billet confirmé pour cet événement" });
-}
+    // Supprimer billets pending/cancelled existants
+    await prisma.ticket.deleteMany({
+      where: { userId, eventId, status: { in: ["pending", "cancelled"] } },
+    });
 
-// Supprimer tout billet pending/cancelled existant pour cet user+event
-await prisma.ticket.deleteMany({
-  where: {
-    userId,
-    eventId,
-    status: { in: ["pending", "cancelled"] },
-  },
-});
-
-// Créer le nouveau billet en attente
-const ticket = await prisma.ticket.create({
-  data: { userId, eventId, status: "pending" },
-  include: { event: true },
-});
+    // Créer billet en attente
+    const ticket = await prisma.ticket.create({
+      data: { userId, eventId, status: "pending" },
+      include: { event: true },
+    });
 
     // Créer paiement
     const payment = await prisma.payment.create({
@@ -112,7 +188,8 @@ const ticket = await prisma.ticket.create({
         currency: "Ar",
         method,
         merchantCode,
-        motif,
+        // Pour Orange Money: pas de motif a saisir, confirmation via ID de transaction
+        motif: method === "Orange Money" ? null : motif,
         motifExpiry,
         phone,
         ticketId: ticket.id,
@@ -124,14 +201,12 @@ const ticket = await prisma.ticket.create({
   }
 });
 
-// ── Vérifier le statut d'un paiement (polling frontend) ─────
+// ── Vérifier le statut d'un paiement (polling frontend toutes les 5s) ─────
 router.get("/status/:paymentId", auth, async (req, res) => {
   try {
     const payment = await prisma.payment.findUnique({
       where: { id: req.params.paymentId },
-      include: {
-        ticket: { include: { event: true } },
-      },
+      include: { ticket: { include: { event: true } } },
     });
 
     if (!payment) return res.status(404).json({ message: "Paiement non trouvé" });
@@ -159,16 +234,15 @@ router.get("/status/:paymentId", auth, async (req, res) => {
   }
 });
 
-// ── Recevoir le SMS parsé (depuis l'app Android) ─────────────
+// ── SMS Webhook — reçoit le SMS parsé depuis SMS Forwarder ─────────────
 router.post("/sms-webhook", async (req, res) => {
-  // Sécurité basique avec clé API
   const apiKey = req.headers["x-api-key"];
   if (apiKey !== process.env.SMS_WEBHOOK_SECRET) {
     return res.status(401).json({ message: "Non autorisé" });
   }
 
   const { smsBody, sender } = req.body;
-  console.log("SMS reçu:", smsBody);
+  console.log("SMS reçu de", sender, ":", smsBody);
 
   const parsed = parseSMS(smsBody);
   if (!parsed) {
@@ -176,9 +250,9 @@ router.post("/sms-webhook", async (req, res) => {
   }
 
   const { motif, amount, method } = parsed;
+  console.log("SMS parsé — méthode:", method, "motif:", motif, "montant:", amount);
 
   try {
-    // Trouver le paiement avec ce motif
     const payment = await prisma.payment.findFirst({
       where: {
         motif: { equals: motif, mode: "insensitive" },
@@ -192,14 +266,14 @@ router.post("/sms-webhook", async (req, res) => {
       return res.status(404).json({ message: "Motif invalide ou expiré" });
     }
 
-    // Vérifier le montant (tolérance de 1 Ar)
+    // Vérifier le montant (tolérance 1 Ar)
     if (amount && Math.abs(amount - payment.amount) > 1) {
       return res.status(400).json({
         message: `Montant incorrect. Attendu: ${payment.amount} Ar, Reçu: ${amount} Ar`,
       });
     }
 
-    // Générer le QR code et confirmer le billet
+    // Générer QR et confirmer le billet
     const qrCode = uuidv4();
 
     await prisma.ticket.update({
@@ -212,7 +286,7 @@ router.post("/sms-webhook", async (req, res) => {
       data: { status: "completed" },
     });
 
-    console.log(`Paiement confirmé: ${payment.id}, Motif: ${motif}`);
+    console.log(`✅ Paiement confirmé automatiquement: ${payment.id}, Motif: ${motif}, Méthode: ${method}`);
 
     res.json({
       message: "Paiement confirmé",
@@ -225,12 +299,7 @@ router.post("/sms-webhook", async (req, res) => {
   }
 });
 
-// ── Codes marchands (pour affichage) ────────────────────────
-router.get("/merchant-codes", auth, (req, res) => {
-  res.json({ merchantCodes: MERCHANT_CODES });
-});
-
-// Vérifier si un paiement en attente existe pour un événement
+// ── Vérifier si paiement en attente existe pour un événement ────────────
 router.get("/pending/:eventId", auth, async (req, res) => {
   try {
     const payment = await prisma.payment.findFirst({
@@ -247,4 +316,5 @@ router.get("/pending/:eventId", auth, async (req, res) => {
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
+
 module.exports = router;

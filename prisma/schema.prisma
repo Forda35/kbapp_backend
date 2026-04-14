@@ -60,18 +60,19 @@ model Ticket {
 }
 
 model Payment {
-  id           String   @id @default(uuid())
-  amount       Float
-  status       String   @default("pending")
-  method       String
-  phone        String
-  merchantCode String   @default("")
-  motif        String   @unique
-  motifExpiry  DateTime
-  userId       String
-  eventId      String
-  ticketId     String?  @unique
-  createdAt    DateTime @default(now())
+  id                   String   @id @default(uuid())
+  amount               Float
+  status               String   @default("pending")
+  method               String
+  phone                String
+  merchantCode         String   @default("")
+  motif                String   @unique
+  motifExpiry          DateTime
+  orangeTransactionId  String?  @unique
+  userId               String
+  eventId              String
+  ticketId             String?  @unique
+  createdAt            DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
