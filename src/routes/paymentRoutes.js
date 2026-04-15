@@ -43,15 +43,21 @@ router.post("/confirm-orange", auth, async (req, res) => {
       return res.status(400).json({ message: "Ce paiement a expiré" });
     }
 
-    // Vérifier que cet ID de transaction n'est pas déjà utilisé
-    const existing = await prisma.payment.findFirst({
-      where: { orangeTransactionId: { equals: trimmedId, mode: "insensitive" } },
-    });
-    if (existing) {
-      return res.status(400).json({ message: "Cet ID de transaction a déjà été utilisé" });
+    // Vérifier que le backend a bien reçu ce Trans Id via SMS Forwarder
+    // orangeTransactionId est stocké par le webhook lors de la réception du SMS Orange
+    if (!payment.orangeTransactionId) {
+      return res.status(400).json({
+        message: "Aucun paiement Orange Money reçu pour ce dossier. Patientez que le SMS soit détecté, ou vérifiez votre ID de transaction.",
+      });
     }
 
-    // Confirmer le paiement
+    if (payment.orangeTransactionId.toUpperCase() !== trimmedId.toUpperCase()) {
+      return res.status(400).json({
+        message: "L'ID de transaction ne correspond pas au paiement reçu. Vérifiez votre SMS Orange Money.",
+      });
+    }
+
+    // ✅ L'ID correspond à ce qu'a reçu le backend — paiement vérifié
     const qrCode = uuidv4();
 
     await prisma.ticket.update({
@@ -61,7 +67,7 @@ router.post("/confirm-orange", auth, async (req, res) => {
 
     await prisma.payment.update({
       where: { id: payment.id },
-      data: { status: "completed", orangeTransactionId: trimmedId },
+      data: { status: "completed" },
     });
 
     const ticket = await prisma.ticket.findUnique({
@@ -249,10 +255,52 @@ router.post("/sms-webhook", async (req, res) => {
     return res.status(400).json({ message: "SMS non reconnu" });
   }
 
-  const { motif, amount, method } = parsed;
-  console.log("SMS parsé — méthode:", method, "motif:", motif, "montant:", amount);
+  const { method, amount, motif, transactionId } = parsed;
+  console.log("SMS parsé — méthode:", method, "montant:", amount,
+    method === "Orange Money" ? "transactionId:" : "motif:", transactionId || motif);
 
   try {
+    // ── Orange Money : enregistrer l'ID de transaction, attendre confirmation utilisateur ──
+    if (method === "Orange Money") {
+      // Vérifier que cet ID n'est pas déjà enregistré
+      const duplicate = await prisma.payment.findFirst({
+        where: { orangeTransactionId: { equals: transactionId, mode: "insensitive" } },
+      });
+      if (duplicate) {
+        return res.status(400).json({ message: "ID de transaction déjà enregistré" });
+      }
+
+      // Trouver le paiement Orange Money pending dont le montant correspond
+      const payment = await prisma.payment.findFirst({
+        where: {
+          method: "Orange Money",
+          status: "pending",
+          motifExpiry: { gt: new Date() },
+          amount: { gte: amount - 1, lte: amount + 1 },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!payment) {
+        console.log(`⚠️ Aucun paiement Orange Money pending trouvé pour montant=${amount}`);
+        return res.status(404).json({ message: "Aucun paiement en attente correspondant" });
+      }
+
+      // Stocker l'ID de transaction — le paiement reste pending
+      // L'utilisateur doit encore le confirmer dans l'app
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { orangeTransactionId: transactionId },
+      });
+
+      console.log(`📲 ID de transaction Orange enregistré: ${transactionId} → paiement ${payment.id}`);
+      return res.json({
+        message: "ID de transaction Orange Money enregistré, en attente de confirmation utilisateur",
+        paymentId: payment.id,
+      });
+    }
+
+    // ── Airtel Money : confirmation automatique via motif KB-XXXX ──
     const payment = await prisma.payment.findFirst({
       where: {
         motif: { equals: motif, mode: "insensitive" },
@@ -286,7 +334,7 @@ router.post("/sms-webhook", async (req, res) => {
       data: { status: "completed" },
     });
 
-    console.log(`✅ Paiement confirmé automatiquement: ${payment.id}, Motif: ${motif}, Méthode: ${method}`);
+    console.log(`✅ Paiement Airtel confirmé automatiquement: ${payment.id}, Motif: ${motif}`);
 
     res.json({
       message: "Paiement confirmé",
