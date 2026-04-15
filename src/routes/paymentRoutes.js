@@ -57,7 +57,7 @@ router.post("/confirm-orange", auth, async (req, res) => {
       });
     }
 
-    // ✅ L'ID correspond à ce qu'a reçu le backend — paiement vérifié
+    // L'ID correspond à ce qu'a reçu le backend — paiement vérifié
     const qrCode = uuidv4();
 
     await prisma.ticket.update({
@@ -75,7 +75,7 @@ router.post("/confirm-orange", auth, async (req, res) => {
       include: { event: true },
     });
 
-    console.log(`✅ Orange Money confirmé manuellement: paymentId=${payment.id}, transactionId=${trimmedId}`);
+    console.log(`Orange Money confirmé manuellement: paymentId=${payment.id}, transactionId=${trimmedId}`);
 
     res.json({
       message: "Paiement Orange Money confirmé",
@@ -282,7 +282,7 @@ router.post("/sms-webhook", async (req, res) => {
       });
 
       if (!payment) {
-        console.log(`⚠️ Aucun paiement Orange Money pending trouvé pour montant=${amount}`);
+        console.log(`Aucun paiement Orange Money pending trouvé pour montant=${amount}`);
         return res.status(404).json({ message: "Aucun paiement en attente correspondant" });
       }
 
@@ -293,7 +293,7 @@ router.post("/sms-webhook", async (req, res) => {
         data: { orangeTransactionId: transactionId },
       });
 
-      console.log(`📲 ID de transaction Orange enregistré: ${transactionId} → paiement ${payment.id}`);
+      console.log(`ID de transaction Orange enregistré: ${transactionId} → paiement ${payment.id}`);
       return res.json({
         message: "ID de transaction Orange Money enregistré, en attente de confirmation utilisateur",
         paymentId: payment.id,
@@ -334,7 +334,7 @@ router.post("/sms-webhook", async (req, res) => {
       data: { status: "completed" },
     });
 
-    console.log(`✅ Paiement Airtel confirmé automatiquement: ${payment.id}, Motif: ${motif}`);
+    console.log(`Paiement Airtel confirmé automatiquement: ${payment.id}, Motif: ${motif}`);
 
     res.json({
       message: "Paiement confirmé",
