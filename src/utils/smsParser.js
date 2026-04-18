@@ -1,7 +1,7 @@
 /**
  * Parse un SMS de confirmation de paiement Mobile Money
- * Détecte : Orange Money, Airtel Money
- * Extrait : montant, transactionId (Orange) ou motif KB-XXXX (Airtel), méthode
+ * Détecte : Orange Money
+ * Extrait : montant, transactionId (Orange), méthode
  *
  * Format SMS Orange Money Madagascar :
  * "Vous avez recu un transfert de 51300Ar venant du 0324931896
@@ -13,11 +13,8 @@ exports.parseSMS = (smsBody) => {
   const text = smsBody.toUpperCase();
 
   // ── Détecter la méthode ──────────────────────────────────────
-  let method = null;
-  if (text.includes("ORANGE")) method = "Orange Money";
-  else if (text.includes("AIRTEL")) method = "Airtel Money";
-
-  if (!method) return null;
+  if (!text.includes("ORANGE")) return null;
+  const method = "Orange Money";
 
   // ── Extraire le montant ──────────────────────────────────────
   // Formats : "51300Ar", "5 000 Ar", "5,000 MGA", "5000ariary"
@@ -30,17 +27,8 @@ exports.parseSMS = (smsBody) => {
 
   // ── Orange Money : extraire l'ID de transaction ──────────────
   // Format : PP251104.0841.D87534 ou MP250414.1234.AB1234
-  if (method === "Orange Money") {
-    const transIdMatch = smsBody.match(/Trans\s*Id[:\s]+([A-Z]{2}\d{6}\.\d{4,6}\.[A-Z0-9]+)/i);
-    if (!transIdMatch) return null;
-    const transactionId = transIdMatch[1].toUpperCase();
-    return { method, transactionId, amount };
-  }
-
-  // ── Airtel Money : extraire le motif KB-XXXX ─────────────────
-  const motifMatch = smsBody.match(/KB-[A-Z0-9]{4}/i);
-  if (!motifMatch) return null;
-  const motif = motifMatch[0].toUpperCase();
-
-  return { method, motif, amount };
+  const transIdMatch = smsBody.match(/Trans\s*Id[:\s]+([A-Z]{2}\d{6}\.\d{4,6}\.[A-Z0-9]+)/i);
+  if (!transIdMatch) return null;
+  const transactionId = transIdMatch[1].toUpperCase();
+  return { method, transactionId, amount };
 };

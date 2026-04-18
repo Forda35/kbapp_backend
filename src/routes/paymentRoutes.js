@@ -91,7 +91,6 @@ router.post("/confirm-orange", auth, async (req, res) => {
 
 // Codes marchands / numéros selon la méthode
 const PAYMENT_DESTINATIONS = {
-  "Airtel Money": process.env.AIRTEL_MONEY_MERCHANT_CODE || "AIRTEL123",
   "Orange Money": process.env.ORANGE_MONEY_PHONE || "032 00 000 00",
 };
 
@@ -100,7 +99,7 @@ router.post("/initiate", auth, async (req, res) => {
   const { eventId, phone, method } = req.body;
   const userId = req.user.id;
 
-  const validMethods = ["Orange Money", "Airtel Money"];
+  const validMethods = ["Orange Money"];
   if (!validMethods.includes(method)) {
     return res.status(400).json({ message: "Méthode de paiement invalide" });
   }
@@ -138,7 +137,7 @@ router.post("/initiate", auth, async (req, res) => {
     const motif = generateMotif();
     const motifExpiry = getMotifExpiry();
 
-    // Destination paiement : code marchand pour Airtel, numéro de téléphone pour Orange
+    // Destination paiement : numéro de téléphone pour Orange
     const merchantCode = PAYMENT_DESTINATIONS[method];
 
     // Supprimer billets pending/cancelled existants
@@ -194,8 +193,6 @@ router.post("/initiate", auth, async (req, res) => {
         currency: "Ar",
         method,
         merchantCode,
-        // Pour Orange Money: pas de motif a saisir, confirmation via ID de transaction
-        motif: method === "Orange Money" ? null : motif,
         motifExpiry,
         phone,
         ticketId: ticket.id,
@@ -255,9 +252,9 @@ router.post("/sms-webhook", async (req, res) => {
     return res.status(400).json({ message: "SMS non reconnu" });
   }
 
-  const { method, amount, motif, transactionId } = parsed;
+  const { method, amount, transactionId } = parsed;
   console.log("SMS parsé — méthode:", method, "montant:", amount,
-    method === "Orange Money" ? "transactionId:" : "motif:", transactionId || motif);
+    "transactionId:", transactionId);
 
   try {
     // ── Orange Money : enregistrer l'ID de transaction, attendre confirmation utilisateur ──
@@ -300,47 +297,7 @@ router.post("/sms-webhook", async (req, res) => {
       });
     }
 
-    // ── Airtel Money : confirmation automatique via motif KB-XXXX ──
-    const payment = await prisma.payment.findFirst({
-      where: {
-        motif: { equals: motif, mode: "insensitive" },
-        status: "pending",
-        motifExpiry: { gt: new Date() },
-      },
-      include: { event: true },
-    });
-
-    if (!payment) {
-      return res.status(404).json({ message: "Motif invalide ou expiré" });
-    }
-
-    // Vérifier le montant (tolérance 1 Ar)
-    if (amount && Math.abs(amount - payment.amount) > 1) {
-      return res.status(400).json({
-        message: `Montant incorrect. Attendu: ${payment.amount} Ar, Reçu: ${amount} Ar`,
-      });
-    }
-
-    // Générer QR et confirmer le billet
-    const qrCode = uuidv4();
-
-    await prisma.ticket.update({
-      where: { id: payment.ticketId },
-      data: { status: "confirmed", qrCode },
-    });
-
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "completed" },
-    });
-
-    console.log(`Paiement Airtel confirmé automatiquement: ${payment.id}, Motif: ${motif}`);
-
-    res.json({
-      message: "Paiement confirmé",
-      paymentId: payment.id,
-      ticketId: payment.ticketId,
-    });
+    return res.status(400).json({ message: "Méthode de paiement non supportée" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Erreur serveur" });
